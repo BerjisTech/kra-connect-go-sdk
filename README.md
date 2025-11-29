@@ -2,12 +2,15 @@
 
 > Official Go SDK for Kenya Revenue Authority's GavaConnect API
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/kra-connect/go-sdk?style=flat-square)](https://go.dev/)
-[![Go Reference](https://pkg.go.dev/badge/github.com/kra-connect/go-sdk.svg)](https://pkg.go.dev/github.com/kra-connect/go-sdk)
+[![Go Reference](https://pkg.go.dev/badge/github.com/BerjisTech/kra-connect-go-sdk.svg)](https://pkg.go.dev/github.com/BerjisTech/kra-connect-go-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/github/actions/workflow/status/kra-connect/go-sdk/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/kra-connect/go-sdk/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kra-connect/go-sdk?style=flat-square)](https://goreportcard.com/report/github.com/kra-connect/go-sdk)
-[![Code Coverage](https://img.shields.io/codecov/c/github/kra-connect/go-sdk?style=flat-square)](https://codecov.io/gh/kra-connect/go-sdk)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/BerjisTech/kra-connect-go-sdk?style=flat-square)](https://go.dev/)
+
+## Repository
+
+- **GitHub**: [BerjisTech/kra-connect-go-sdk](https://github.com/BerjisTech/kra-connect-go-sdk)
+- **Go Packages**: [pkg.go.dev/github.com/BerjisTech/kra-connect-go-sdk](https://pkg.go.dev/github.com/BerjisTech/kra-connect-go-sdk)
+- **Documentation**: [https://docs.kra-connect.dev/go](https://docs.kra-connect.dev/go)
 
 ## Features
 
@@ -32,7 +35,7 @@
 ## Installation
 
 ```bash
-go get github.com/kra-connect/go-sdk
+go get github.com/BerjisTech/kra-connect-go-sdk
 ```
 
 ## Quick Start
@@ -46,7 +49,7 @@ import (
     "log"
     "os"
 
-    kra "github.com/kra-connect/go-sdk"
+    kra "github.com/BerjisTech/kra-connect-go-sdk"
 )
 
 func main() {
@@ -253,23 +256,53 @@ go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
 
+## Publishing
+
+### Publishing a New Version
+
+```bash
+# Update version in go.mod if needed
+# Update CHANGELOG.md
+
+# Tag the release
+git tag -a v1.0.0 -m "Release version 1.0.0"
+git push origin v1.0.0
+
+# The module will be automatically available via go get
+# Go will automatically index it from pkg.go.dev
+```
+
+### GitHub Release
+
+```bash
+# Create GitHub release
+gh release create v1.0.0 --title "v1.0.0" --notes "Release notes here"
+```
+
 ## Contributing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for contribution guidelines.
+Contributions are welcome! Please:
+
+1. Fork the repository: [BerjisTech/kra-connect-go-sdk](https://github.com/BerjisTech/kra-connect-go-sdk)
+2. Create a feature branch
+3. Make your changes with tests
+4. Submit a pull request
 
 ## License
 
-MIT License - see [LICENSE](../../LICENSE) for details.
+MIT License - see [LICENSE](./LICENSE) for details.
 
 ## Support
 
-- Issues: https://github.com/kra-connect/go-sdk/issues
-- Documentation: https://pkg.go.dev/github.com/kra-connect/go-sdk
-- Examples: [examples/](examples/)
+- **Issues**: [GitHub Issues](https://github.com/BerjisTech/kra-connect-go-sdk/issues)
+- **Documentation**: [pkg.go.dev/github.com/BerjisTech/kra-connect-go-sdk](https://pkg.go.dev/github.com/BerjisTech/kra-connect-go-sdk)
+- **Discussions**: [GitHub Discussions](https://github.com/BerjisTech/kra-connect-go-sdk/discussions)
+- **Examples**: [examples/](examples/)
 
 ## Related SDKs
 
-- [Python SDK](https://github.com/kra-connect/python-sdk)
-- [Node.js SDK](https://github.com/kra-connect/node-sdk)
-- [PHP SDK](https://github.com/kra-connect/php-sdk)
-- [Flutter SDK](https://github.com/kra-connect/flutter-sdk)
+- [Python SDK](https://github.com/BerjisTech/kra-connect-python-sdk)
+- [Node.js SDK](https://github.com/BerjisTech/kra-connect-node-sdk)
+- [PHP SDK](https://github.com/BerjisTech/kra-connect-php-sdk)
+- [Flutter SDK](https://github.com/BerjisTech/kra-connect-flutter-sdk)
+- [CLI Tool](https://github.com/BerjisTech/kra-cli)
