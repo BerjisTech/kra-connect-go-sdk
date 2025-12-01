@@ -19,7 +19,7 @@ func TestSDKErrorWrapping(t *testing.T) {
 }
 
 func TestAPIErrorHelpers(t *testing.T) {
-	apiErr := NewAPIError(503, "server down", "/verify-pin", "body")
+	apiErr := NewAPIError(503, "server down", "/checker/v1/pinbypin", "body")
 	if !apiErr.IsServerError() {
 		t.Fatal("expected IsServerError to be true")
 	}

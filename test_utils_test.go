@@ -9,6 +9,19 @@ import (
 	"time"
 )
 
+type apiResponse struct {
+	Success bool                   `json:"success"`
+	Data    map[string]interface{} `json:"data,omitempty"`
+	Error   *apiErrorResponse      `json:"error,omitempty"`
+	Message string                 `json:"message,omitempty"`
+}
+
+type apiErrorResponse struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Details string `json:"details,omitempty"`
+}
+
 const testAPIKey = "abcdefghijklmnop"
 
 // newClientWithServer returns a client wired to the provided HTTP handler.
@@ -39,7 +52,32 @@ func newClientWithServer(t testing.TB, handler http.HandlerFunc, extraOpts ...Op
 func writeJSON(t testing.TB, w http.ResponseWriter, v interface{}) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		t.Fatalf("failed to encode JSON: %v", err)
+	switch val := v.(type) {
+	case apiResponse:
+		payload := map[string]interface{}{
+			"responseCode": "70000",
+			"responseDesc": "Successful",
+			"status":       "OK",
+		}
+		if val.Data != nil {
+			payload["responseData"] = val.Data
+		}
+		if !val.Success {
+			payload["responseCode"] = "70001"
+			payload["status"] = "ERROR"
+			if val.Error != nil {
+				payload["ErrorCode"] = val.Error.Code
+				payload["ErrorMessage"] = val.Error.Message
+			} else if val.Message != "" {
+				payload["ErrorMessage"] = val.Message
+			}
+		}
+		if err := json.NewEncoder(w).Encode(payload); err != nil {
+			t.Fatalf("failed to encode JSON: %v", err)
+		}
+	default:
+		if err := json.NewEncoder(w).Encode(v); err != nil {
+			t.Fatalf("failed to encode JSON: %v", err)
+		}
 	}
 }

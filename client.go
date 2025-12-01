@@ -3,6 +3,7 @@ package kra
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -119,36 +120,34 @@ func (c *Client) VerifyPIN(ctx context.Context, pin string) (*PINVerificationRes
 	}
 
 	// Make API request
-	responseData, err := c.httpClient.Post(ctx, "/verify-pin", map[string]string{
-		"pin": normalizedPIN,
+	apiResp, err := c.httpClient.Post(ctx, "/checker/v1/pinbypin", map[string]string{
+		"KRAPIN": normalizedPIN,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse response
+	data := apiResp.Data
 	result := &PINVerificationResult{
-		PINNumber:  normalizedPIN,
-		VerifiedAt: time.Now(),
+		PINNumber:        normalizedPIN,
+		VerifiedAt:       time.Now(),
+		Metadata:         apiResp.Meta,
+		RawData:          data,
+		AdditionalData:   data,
+		TaxpayerName:     firstString(data, "taxpayerName", "TaxpayerName", "taxpayer_name"),
+		Status:           strings.ToLower(firstString(data, "pinStatus", "status", "TaxpayerStatus")),
+		TaxpayerType:     strings.ToLower(firstString(data, "taxpayerType", "TaxpayerType", "taxpayer_type")),
+		RegistrationDate: firstString(data, "registrationDate", "RegistrationDate", "registration_date"),
 	}
 
-	if isValid, ok := responseData["is_valid"].(bool); ok {
+	if pinValue := firstString(data, "kraPin", "KRAPIN", "pin"); pinValue != "" {
+		result.PINNumber = pinValue
+	}
+
+	if isValid, ok := firstBool(data, "isValid", "IsValid"); ok {
 		result.IsValid = isValid
-	}
-	if taxpayerName, ok := responseData["taxpayer_name"].(string); ok {
-		result.TaxpayerName = taxpayerName
-	}
-	if status, ok := responseData["status"].(string); ok {
-		result.Status = status
-	}
-	if taxpayerType, ok := responseData["taxpayer_type"].(string); ok {
-		result.TaxpayerType = taxpayerType
-	}
-	if registrationDate, ok := responseData["registration_date"].(string); ok {
-		result.RegistrationDate = registrationDate
-	}
-	if additionalData, ok := responseData["additional_data"].(map[string]interface{}); ok {
-		result.AdditionalData = additionalData
+	} else {
+		result.IsValid = inferValidityFromStatus(result.Status)
 	}
 
 	// Cache result
@@ -164,7 +163,11 @@ func (c *Client) VerifyPIN(ctx context.Context, pin string) (*PINVerificationRes
 //
 // Example:
 //
-//	result, err := client.VerifyTCC(ctx, "TCC123456")
+//	req := &kra.TCCVerificationRequest{
+//	    KraPIN:    "P051234567A",
+//	    TCCNumber: "TCC123456",
+//	}
+//	result, err := client.VerifyTCC(ctx, req)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -172,19 +175,27 @@ func (c *Client) VerifyPIN(ctx context.Context, pin string) (*PINVerificationRes
 //	if result.IsCurrentlyValid() {
 //	    fmt.Printf("TCC valid until: %s\n", result.ExpiryDate)
 //	}
-func (c *Client) VerifyTCC(ctx context.Context, tcc string) (*TCCVerificationResult, error) {
+func (c *Client) VerifyTCC(ctx context.Context, req *TCCVerificationRequest) (*TCCVerificationResult, error) {
 	if err := c.checkClosed(); err != nil {
 		return nil, err
 	}
 
-	// Validate and normalize TCC
-	normalizedTCC, err := ValidateAndNormalizeTCC(tcc)
+	if req == nil {
+		return nil, fmt.Errorf("verification request cannot be nil")
+	}
+
+	normalizedPIN, err := ValidateAndNormalizePIN(req.KraPIN)
+	if err != nil {
+		return nil, err
+	}
+
+	normalizedTCC, err := ValidateAndNormalizeTCC(req.TCCNumber)
 	if err != nil {
 		return nil, err
 	}
 
 	// Check cache
-	cacheKey := GenerateCacheKey("tcc_verification", normalizedTCC)
+	cacheKey := GenerateCacheKey("tcc_verification", normalizedPIN+"_"+normalizedTCC)
 	if cached, found := c.cacheManager.Get(cacheKey); found {
 		if result, ok := cached.(*TCCVerificationResult); ok {
 			return result, nil
@@ -192,8 +203,9 @@ func (c *Client) VerifyTCC(ctx context.Context, tcc string) (*TCCVerificationRes
 	}
 
 	// Make API request
-	responseData, err := c.httpClient.Post(ctx, "/verify-tcc", map[string]string{
-		"tcc": normalizedTCC,
+	apiResp, err := c.httpClient.Post(ctx, "/v1/kra-tcc/validate", map[string]string{
+		"kraPIN":    normalizedPIN,
+		"tccNumber": normalizedTCC,
 	})
 	if err != nil {
 		return nil, err
@@ -201,36 +213,33 @@ func (c *Client) VerifyTCC(ctx context.Context, tcc string) (*TCCVerificationRes
 
 	// Parse response
 	result := &TCCVerificationResult{
-		TCCNumber:  normalizedTCC,
-		VerifiedAt: time.Now(),
+		TCCNumber:      normalizedTCC,
+		PINNumber:      normalizedPIN,
+		VerifiedAt:     time.Now(),
+		Metadata:       apiResp.Meta,
+		RawData:        apiResp.Data,
+		AdditionalData: apiResp.Data,
+		TaxpayerName:   firstString(apiResp.Data, "taxpayerName", "TaxpayerName", "taxpayer_name"),
+		IssueDate:      firstString(apiResp.Data, "issueDate", "IssueDate"),
+		ExpiryDate:     firstString(apiResp.Data, "expiryDate", "ExpiryDate"),
+		Status:         strings.ToLower(firstString(apiResp.Data, "status", "tccStatus")),
+		CertificateType: firstString(apiResp.Data,
+			"certificateType",
+			"CertificateType"),
 	}
 
-	if isValid, ok := responseData["is_valid"].(bool); ok {
-		result.IsValid = isValid
+	if pin := firstString(apiResp.Data, "kraPin", "TaxpayerPIN", "pin_number"); pin != "" {
+		result.PINNumber = pin
 	}
-	if taxpayerName, ok := responseData["taxpayer_name"].(string); ok {
-		result.TaxpayerName = taxpayerName
+
+	if valid, ok := firstBool(apiResp.Data, "isValid", "IsValid"); ok {
+		result.IsValid = valid
+	} else {
+		result.IsValid = inferValidityFromStatus(result.Status)
 	}
-	if pinNumber, ok := responseData["pin_number"].(string); ok {
-		result.PINNumber = pinNumber
-	}
-	if issueDate, ok := responseData["issue_date"].(string); ok {
-		result.IssueDate = issueDate
-	}
-	if expiryDate, ok := responseData["expiry_date"].(string); ok {
-		result.ExpiryDate = expiryDate
-	}
-	if isExpired, ok := responseData["is_expired"].(bool); ok {
-		result.IsExpired = isExpired
-	}
-	if status, ok := responseData["status"].(string); ok {
-		result.Status = status
-	}
-	if certificateType, ok := responseData["certificate_type"].(string); ok {
-		result.CertificateType = certificateType
-	}
-	if additionalData, ok := responseData["additional_data"].(map[string]interface{}); ok {
-		result.AdditionalData = additionalData
+
+	if expired, ok := firstBool(apiResp.Data, "isExpired", "IsExpired"); ok {
+		result.IsExpired = expired
 	}
 
 	// Cache result
@@ -272,51 +281,51 @@ func (c *Client) ValidateEslip(ctx context.Context, eslipNumber string) (*EslipV
 	}
 
 	// Make API request
-	responseData, err := c.httpClient.Post(ctx, "/validate-eslip", map[string]string{
-		"eslip_number": eslipNumber,
+	apiResp, err := c.httpClient.Post(ctx, "/payment/checker/v1/eslip", map[string]string{
+		"EslipNumber": eslipNumber,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse response
+	data := apiResp.Data
 	result := &EslipValidationResult{
-		EslipNumber: eslipNumber,
-		ValidatedAt: time.Now(),
+		EslipNumber:  firstString(data, "EslipNumber", "eslipNumber", "eslip", "eslip_number"),
+		TaxpayerPIN:  firstString(data, "taxpayerPin", "TaxpayerPIN", "taxpayer_pin"),
+		TaxpayerName: firstString(data, "taxpayerName", "TaxpayerName", "taxpayer_name"),
+		PaymentDate:  firstString(data, "paymentDate", "PaymentDate"),
+		PaymentReference: firstString(
+			data,
+			"paymentReference",
+			"PaymentReference",
+			"referenceNumber",
+			"payment_reference",
+		),
+		ObligationType:   firstString(data, "obligationType", "taxType", "obligation_type"),
+		ObligationPeriod: firstString(data, "obligationPeriod", "taxPeriod", "obligation_period"),
+		Status:           strings.ToLower(firstString(data, "status", "eslipStatus")),
+		ValidatedAt:      time.Now(),
+		Metadata:         apiResp.Meta,
+		RawData:          data,
+		AdditionalData:   data,
 	}
 
-	if isValid, ok := responseData["is_valid"].(bool); ok {
-		result.IsValid = isValid
+	if result.EslipNumber == "" {
+		result.EslipNumber = eslipNumber
 	}
-	if taxpayerPIN, ok := responseData["taxpayer_pin"].(string); ok {
-		result.TaxpayerPIN = taxpayerPIN
-	}
-	if taxpayerName, ok := responseData["taxpayer_name"].(string); ok {
-		result.TaxpayerName = taxpayerName
-	}
-	if amount, ok := responseData["amount"].(float64); ok {
+
+	if amount, ok := firstFloat64(data, "amount", "Amount"); ok {
 		result.Amount = amount
 	}
-	if currency, ok := responseData["currency"].(string); ok {
+
+	if isValid, ok := firstBool(data, "isValid", "IsValid"); ok {
+		result.IsValid = isValid
+	} else {
+		result.IsValid = inferValidityFromStatus(result.Status)
+	}
+
+	if currency := firstString(data, "currency", "Currency"); currency != "" {
 		result.Currency = currency
-	}
-	if paymentDate, ok := responseData["payment_date"].(string); ok {
-		result.PaymentDate = paymentDate
-	}
-	if paymentRef, ok := responseData["payment_reference"].(string); ok {
-		result.PaymentReference = paymentRef
-	}
-	if obligationType, ok := responseData["obligation_type"].(string); ok {
-		result.ObligationType = obligationType
-	}
-	if obligationPeriod, ok := responseData["obligation_period"].(string); ok {
-		result.ObligationPeriod = obligationPeriod
-	}
-	if status, ok := responseData["status"].(string); ok {
-		result.Status = status
-	}
-	if additionalData, ok := responseData["additional_data"].(map[string]interface{}); ok {
-		result.AdditionalData = additionalData
 	}
 
 	// Cache result
@@ -330,9 +339,10 @@ func (c *Client) ValidateEslip(ctx context.Context, eslipNumber string) (*EslipV
 // Example:
 //
 //	result, err := client.FileNILReturn(ctx, &kra.NILReturnRequest{
-//	    PINNumber:    "P051234567A",
-//	    ObligationID: "OBL123456",
-//	    Period:       "202401",
+//	    PINNumber:      "P051234567A",
+//	    ObligationCode: 1,
+//	    Month:          1,
+//	    Year:           2024,
 //	})
 //	if err != nil {
 //	    log.Fatal(err)
@@ -346,61 +356,58 @@ func (c *Client) FileNILReturn(ctx context.Context, req *NILReturnRequest) (*NIL
 		return nil, err
 	}
 
-	// Validate request
-	if _, err := ValidateAndNormalizePIN(req.PINNumber); err != nil {
-		return nil, err
-	}
-	if err := ValidateObligationID(req.ObligationID); err != nil {
-		return nil, err
-	}
-	if err := ValidatePeriod(req.Period); err != nil {
-		return nil, err
+	if req == nil {
+		return nil, fmt.Errorf("request cannot be nil")
 	}
 
-	// Make API request (no caching for write operations)
-	responseData, err := c.httpClient.Post(ctx, "/file-nil-return", map[string]string{
-		"pin_number":    req.PINNumber,
-		"obligation_id": req.ObligationID,
-		"period":        req.Period,
-	})
+	normalizedPIN, err := ValidateAndNormalizePIN(req.PINNumber)
+	if err != nil {
+		return nil, err
+	}
+	if req.ObligationCode <= 0 {
+		return nil, NewValidationError("obligation_code", "Obligation code must be positive")
+	}
+	if req.Month < 1 || req.Month > 12 {
+		return nil, NewValidationError("month", "Month must be between 1 and 12")
+	}
+	if req.Year < 2000 {
+		return nil, NewValidationError("year", "Year must be >= 2000")
+	}
+
+	payload := map[string]interface{}{
+		"TAXPAYERDETAILS": map[string]interface{}{
+			"TaxpayerPIN":    normalizedPIN,
+			"ObligationCode": req.ObligationCode,
+			"Month":          req.Month,
+			"Year":           req.Year,
+		},
+	}
+
+	apiResp, err := c.httpClient.Post(ctx, "/dtd/return/v1/nil", payload)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse response
+	data := apiResp.Data
 	result := &NILReturnResult{
-		FiledAt: time.Now(),
+		PINNumber:             normalizedPIN,
+		ObligationID:          fmt.Sprintf("%d", req.ObligationCode),
+		Period:                fmt.Sprintf("%04d%02d", req.Year, req.Month),
+		FiledAt:               time.Now(),
+		Metadata:              apiResp.Meta,
+		RawData:               data,
+		AdditionalData:        data,
+		ReferenceNumber:       firstString(data, "referenceNumber", "RefNumber"),
+		FilingDate:            firstString(data, "filingDate", "FilingDate"),
+		AcknowledgementNumber: firstString(data, "acknowledgementNumber", "AcknowledgementNumber"),
+		Status:                strings.ToLower(firstString(data, "status", "filingStatus")),
+		Message:               firstString(data, "message", "responseDesc"),
 	}
 
-	if success, ok := responseData["success"].(bool); ok {
+	if success, ok := firstBool(data, "success", "Success"); ok {
 		result.Success = success
-	}
-	if pinNumber, ok := responseData["pin_number"].(string); ok {
-		result.PINNumber = pinNumber
-	}
-	if obligationID, ok := responseData["obligation_id"].(string); ok {
-		result.ObligationID = obligationID
-	}
-	if period, ok := responseData["period"].(string); ok {
-		result.Period = period
-	}
-	if refNumber, ok := responseData["reference_number"].(string); ok {
-		result.ReferenceNumber = refNumber
-	}
-	if filingDate, ok := responseData["filing_date"].(string); ok {
-		result.FilingDate = filingDate
-	}
-	if ackNumber, ok := responseData["acknowledgement_number"].(string); ok {
-		result.AcknowledgementNumber = ackNumber
-	}
-	if status, ok := responseData["status"].(string); ok {
-		result.Status = status
-	}
-	if message, ok := responseData["message"].(string); ok {
-		result.Message = message
-	}
-	if additionalData, ok := responseData["additional_data"].(map[string]interface{}); ok {
-		result.AdditionalData = additionalData
+	} else {
+		result.Success = inferValidityFromStatus(result.Status)
 	}
 
 	return result, nil
@@ -438,81 +445,108 @@ func (c *Client) GetTaxpayerDetails(ctx context.Context, pin string) (*TaxpayerD
 		}
 	}
 
-	// Make API request
-	responseData, err := c.httpClient.Get(ctx, fmt.Sprintf("/taxpayer/%s", normalizedPIN))
+	profileResp, err := c.httpClient.Post(ctx, "/checker/v1/pinbypin", map[string]string{
+		"KRAPIN": normalizedPIN,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse response
+	obligationResp, err := c.httpClient.Post(ctx, "/dtd/checker/v1/obligation", map[string]string{
+		"taxPayerPin": normalizedPIN,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	profile := profileResp.Data
+	obligations := parseObligations(obligationResp.Data)
+
+	extra := map[string]interface{}{
+		"profile":     profile,
+		"obligations": obligationResp.Data,
+	}
+
 	details := &TaxpayerDetails{
-		PINNumber:   normalizedPIN,
-		RetrievedAt: time.Now(),
+		PINNumber:        normalizedPIN,
+		TaxpayerName:     firstString(profile, "taxpayerName", "TaxpayerName", "taxpayer_name"),
+		TaxpayerType:     strings.ToLower(firstString(profile, "taxpayerType", "TaxpayerType", "taxpayer_type")),
+		Status:           strings.ToLower(firstString(profile, "pinStatus", "status", "TaxpayerStatus")),
+		RegistrationDate: firstString(profile, "registrationDate", "RegistrationDate", "registration_date"),
+		BusinessName:     firstString(profile, "businessName", "BusinessName"),
+		TradingName:      firstString(profile, "tradingName", "TradingName"),
+		PostalAddress:    firstString(profile, "postalAddress", "PostalAddress"),
+		PhysicalAddress:  firstString(profile, "physicalAddress", "PhysicalAddress"),
+		EmailAddress:     firstString(profile, "emailAddress", "EmailAddress"),
+		PhoneNumber:      firstString(profile, "phoneNumber", "PhoneNumber"),
+		Obligations:      obligations,
+		AdditionalData:   extra,
+		RetrievedAt:      time.Now(),
+		Metadata:         profileResp.Meta,
+		RawData:          profile,
 	}
 
-	if taxpayerName, ok := responseData["taxpayer_name"].(string); ok {
-		details.TaxpayerName = taxpayerName
-	}
-	if taxpayerType, ok := responseData["taxpayer_type"].(string); ok {
-		details.TaxpayerType = taxpayerType
-	}
-	if status, ok := responseData["status"].(string); ok {
-		details.Status = status
-	}
-	if registrationDate, ok := responseData["registration_date"].(string); ok {
-		details.RegistrationDate = registrationDate
-	}
-	if businessName, ok := responseData["business_name"].(string); ok {
-		details.BusinessName = businessName
-	}
-	if tradingName, ok := responseData["trading_name"].(string); ok {
-		details.TradingName = tradingName
-	}
-	if postalAddress, ok := responseData["postal_address"].(string); ok {
-		details.PostalAddress = postalAddress
-	}
-	if physicalAddress, ok := responseData["physical_address"].(string); ok {
-		details.PhysicalAddress = physicalAddress
-	}
-	if emailAddress, ok := responseData["email_address"].(string); ok {
-		details.EmailAddress = emailAddress
-	}
-	if phoneNumber, ok := responseData["phone_number"].(string); ok {
-		details.PhoneNumber = phoneNumber
-	}
-	if additionalData, ok := responseData["additional_data"].(map[string]interface{}); ok {
-		details.AdditionalData = additionalData
-	}
-
-	// Parse obligations
-	if obligations, ok := responseData["obligations"].([]interface{}); ok {
-		for _, ob := range obligations {
-			if obMap, ok := ob.(map[string]interface{}); ok {
-				obligation := TaxObligation{}
-				if id, ok := obMap["obligation_id"].(string); ok {
-					obligation.ObligationID = id
-				}
-				if obType, ok := obMap["obligation_type"].(string); ok {
-					obligation.ObligationType = obType
-				}
-				if desc, ok := obMap["description"].(string); ok {
-					obligation.Description = desc
-				}
-				if status, ok := obMap["status"].(string); ok {
-					obligation.Status = status
-				}
-				if isActive, ok := obMap["is_active"].(bool); ok {
-					obligation.IsActive = isActive
-				}
-				details.Obligations = append(details.Obligations, obligation)
-			}
-		}
+	if details.TaxpayerName == "" {
+		details.TaxpayerName = firstString(profile, "legalName", "BusinessName")
 	}
 
 	// Cache result
 	c.cacheManager.Set(cacheKey, details, c.config.TaxpayerDetailsTTL)
 
 	return details, nil
+}
+
+func parseObligations(payload map[string]interface{}) []TaxObligation {
+	if payload == nil {
+		return nil
+	}
+
+	items, ok := payload["obligations"].([]interface{})
+	if !ok {
+		return nil
+	}
+
+	obligations := make([]TaxObligation, 0, len(items))
+	for _, item := range items {
+		row, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		obligation := TaxObligation{
+			ObligationID:     firstString(row, "obligationId", "ObligationID", "obligation_id"),
+			ObligationType:   firstString(row, "obligationType", "ObligationType", "obligation_type"),
+			Description:      firstString(row, "description", "Description"),
+			Status:           strings.ToLower(firstString(row, "status", "Status")),
+			RegistrationDate: firstString(row, "registrationDate", "RegistrationDate"),
+			EffectiveDate:    firstString(row, "effectiveDate", "EffectiveDate"),
+			EndDate:          firstString(row, "endDate", "EndDate"),
+			Frequency:        firstString(row, "frequency", "Frequency"),
+			NextFilingDate:   firstString(row, "nextFilingDate", "NextFilingDate"),
+			AdditionalData:   row,
+		}
+		if isActive, ok := firstBool(row, "isActive", "IsActive"); ok {
+			obligation.IsActive = isActive
+		} else {
+			obligation.IsActive = inferValidityFromStatus(obligation.Status)
+		}
+		obligations = append(obligations, obligation)
+	}
+
+	return obligations
+}
+
+func inferValidityFromStatus(status string) bool {
+	if status == "" {
+		return false
+	}
+	s := strings.ToLower(strings.TrimSpace(status))
+	if s == "" {
+		return false
+	}
+	if strings.Contains(s, "invalid") || strings.Contains(s, "inactive") || strings.Contains(s, "expired") || strings.Contains(s, "reject") {
+		return false
+	}
+	return true
 }
 
 // VerifyPINsBatch verifies multiple PIN numbers in parallel
@@ -571,23 +605,23 @@ func (c *Client) VerifyPINsBatch(ctx context.Context, pins []string) ([]*PINVeri
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func (c *Client) VerifyTCCsBatch(ctx context.Context, tccs []string) ([]*TCCVerificationResult, error) {
+func (c *Client) VerifyTCCsBatch(ctx context.Context, requests []*TCCVerificationRequest) ([]*TCCVerificationResult, error) {
 	if err := c.checkClosed(); err != nil {
 		return nil, err
 	}
 
-	results := make([]*TCCVerificationResult, len(tccs))
-	errs := make([]error, len(tccs))
+	results := make([]*TCCVerificationResult, len(requests))
+	errs := make([]error, len(requests))
 
 	var wg sync.WaitGroup
-	for i, tcc := range tccs {
+	for i, req := range requests {
 		wg.Add(1)
-		go func(index int, t string) {
+		go func(index int, r *TCCVerificationRequest) {
 			defer wg.Done()
-			result, err := c.VerifyTCC(ctx, t)
+			result, err := c.VerifyTCC(ctx, r)
 			results[index] = result
 			errs[index] = err
-		}(i, tcc)
+		}(i, req)
 	}
 
 	wg.Wait()

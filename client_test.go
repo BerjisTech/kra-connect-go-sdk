@@ -14,7 +14,7 @@ func TestClientVerifyPINUsesCache(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/verify-pin":
+		case "/checker/v1/pinbypin":
 			atomic.AddInt32(&hits, 1)
 			writeJSON(t, w, apiResponse{
 				Success: true,
@@ -53,107 +53,76 @@ func TestClientVerifyPINUsesCache(t *testing.T) {
 func TestClientAllEndpoints(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/verify-pin":
+		case "/checker/v1/pinbypin":
 			writeJSON(t, w, apiResponse{
 				Success: true,
 				Data: map[string]interface{}{
-					"is_valid":          true,
-					"taxpayer_name":     "Acme",
-					"status":            "active",
-					"taxpayer_type":     "company",
-					"registration_date": "2020-02-02",
-					"additional_data": map[string]interface{}{
-						"note": "full coverage",
-					},
+					"kraPin":           "P051234567A",
+					"isValid":          true,
+					"taxpayerName":     "Acme",
+					"pinStatus":        "ACTIVE",
+					"taxpayerType":     "Company",
+					"registrationDate": "2020-02-02",
 				},
 			})
-		case "/verify-tcc":
+		case "/v1/kra-tcc/validate":
 			writeJSON(t, w, apiResponse{
 				Success: true,
 				Data: map[string]interface{}{
-					"is_valid":         true,
-					"expiry_date":      "2025-12-31",
-					"issue_date":       "2025-01-01",
-					"taxpayer_name":    "Acme",
-					"pin_number":       "P051234567A",
-					"is_expired":       false,
-					"status":           "active",
-					"certificate_type": "tax",
-					"additional_data": map[string]interface{}{
-						"issued_by": "KRA",
-					},
+					"isValid":         true,
+					"isExpired":       false,
+					"expiryDate":      "2025-12-31",
+					"issueDate":       "2025-01-01",
+					"taxpayerName":    "Acme",
+					"kraPin":          "P051234567A",
+					"status":          "ACTIVE",
+					"certificateType": "tax",
 				},
 			})
-		case "/validate-eslip":
+		case "/payment/checker/v1/eslip":
 			writeJSON(t, w, apiResponse{
 				Success: true,
 				Data: map[string]interface{}{
-					"is_valid":          true,
-					"taxpayer_pin":      "P051234567A",
-					"taxpayer_name":     "Acme",
-					"amount":            1000.0,
-					"currency":          "KES",
-					"payment_date":      "2025-01-01",
-					"payment_reference": "ES123",
-					"status":            "paid",
-					"obligation_type":   "VAT",
-					"obligation_period": "202401",
-					"additional_data": map[string]interface{}{
-						"channel": "mpesa",
-					},
+					"isValid":          true,
+					"taxpayerPin":      "P051234567A",
+					"taxpayerName":     "Acme",
+					"amount":           1000.0,
+					"currency":         "KES",
+					"paymentDate":      "2025-01-01",
+					"paymentReference": "ES123",
+					"status":           "paid",
+					"obligationType":   "VAT",
+					"obligationPeriod": "202401",
 				},
 			})
-		case "/file-nil-return":
+		case "/dtd/return/v1/nil":
 			writeJSON(t, w, apiResponse{
 				Success: true,
 				Data: map[string]interface{}{
-					"success":                true,
-					"pin_number":             "P051234567A",
-					"obligation_id":          "OBL123456",
-					"period":                 "202401",
-					"reference_number":       "REF123",
-					"acknowledgement_number": "ACK123",
-					"filing_date":            "2025-02-01",
-					"status":                 "accepted",
-					"message":                "Filed",
-					"additional_data": map[string]interface{}{
-						"processor": "automation",
-					},
+					"success":               true,
+					"referenceNumber":       "REF123",
+					"filingDate":            "2025-02-01",
+					"acknowledgementNumber": "ACK123",
+					"status":                "accepted",
+					"message":               "Filed",
 				},
 			})
-		case "/taxpayer/P051234567A":
+		case "/dtd/checker/v1/obligation":
 			writeJSON(t, w, apiResponse{
 				Success: true,
 				Data: map[string]interface{}{
-					"pin_number":        "P051234567A",
-					"taxpayer_name":     "Acme",
-					"taxpayer_type":     "Company",
-					"status":            "active",
-					"business_name":     "Acme Group",
-					"trading_name":      "Acme Trading",
-					"postal_address":    "P.O. Box 123",
-					"physical_address":  "Nairobi",
-					"email_address":     "info@example.com",
-					"phone_number":      "+254700000000",
-					"registration_date": "2019-01-01",
-					"additional_data": map[string]interface{}{
-						"segment": "enterprise",
-					},
 					"obligations": []map[string]interface{}{
 						{
-							"obligation_id":     "OBL123",
-							"obligation_type":   "VAT",
-							"description":       "Value Added Tax",
-							"status":            "active",
-							"registration_date": "2019-01-01",
-							"effective_date":    "2019-02-01",
-							"end_date":          "2099-12-31",
-							"frequency":         "monthly",
-							"next_filing_date":  time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02"),
-							"is_active":         true,
-							"additional_data": map[string]interface{}{
-								"notes": "test obligation",
-							},
+							"obligationId":     "OBL123",
+							"obligationType":   "VAT",
+							"description":      "Value Added Tax",
+							"status":           "ACTIVE",
+							"registrationDate": "2019-01-01",
+							"effectiveDate":    "2019-02-01",
+							"endDate":          "2099-12-31",
+							"frequency":        "monthly",
+							"nextFilingDate":   time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02"),
+							"isActive":         true,
 						},
 					},
 				},
@@ -172,7 +141,10 @@ func TestClientAllEndpoints(t *testing.T) {
 		t.Fatalf("VerifyPIN() = %v, %v", res, err)
 	}
 
-	if res, err := client.VerifyTCC(ctx, "TCC123456"); err != nil || !res.IsCurrentlyValid() {
+	if res, err := client.VerifyTCC(ctx, &TCCVerificationRequest{
+		KraPIN:    "P051234567A",
+		TCCNumber: "TCC123456",
+	}); err != nil || !res.IsCurrentlyValid() {
 		t.Fatalf("VerifyTCC() = %v, %v", res, err)
 	}
 
@@ -181,9 +153,10 @@ func TestClientAllEndpoints(t *testing.T) {
 	}
 
 	nilReq := &NILReturnRequest{
-		PINNumber:    "P051234567A",
-		ObligationID: "OBL123456",
-		Period:       "202401",
+		PINNumber:      "P051234567A",
+		ObligationCode: 1,
+		Month:          1,
+		Year:           2024,
 	}
 	if res, err := client.FileNILReturn(ctx, nilReq); err != nil || !res.IsAccepted() {
 		t.Fatalf("FileNILReturn() = %v, %v", res, err)
@@ -197,7 +170,7 @@ func TestClientAllEndpoints(t *testing.T) {
 func TestClientBatchOperations(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/verify-pin":
+		case "/checker/v1/pinbypin":
 			writeJSON(t, w, apiResponse{
 				Success: true,
 				Data: map[string]interface{}{
@@ -210,7 +183,7 @@ func TestClientBatchOperations(t *testing.T) {
 					},
 				},
 			})
-		case "/verify-tcc":
+		case "/v1/kra-tcc/validate":
 			writeJSON(t, w, apiResponse{
 				Success: true,
 				Data: map[string]interface{}{
@@ -241,7 +214,10 @@ func TestClientBatchOperations(t *testing.T) {
 		}
 	}
 
-	tccs := []string{"TCC123456", "TCC123457"}
+	tccs := []*TCCVerificationRequest{
+		{KraPIN: "P051234567A", TCCNumber: "TCC123456"},
+		{KraPIN: "P051234567B", TCCNumber: "TCC123457"},
+	}
 	if _, err := client.VerifyTCCsBatch(ctx, tccs); err != nil {
 		t.Fatalf("VerifyTCCsBatch error = %v", err)
 	}
@@ -342,7 +318,10 @@ func TestClientVerifyTCCAPIError(t *testing.T) {
 	defer server.Close()
 
 	ctx := context.Background()
-	_, err := client.VerifyTCC(ctx, "TCC123456")
+	_, err := client.VerifyTCC(ctx, &TCCVerificationRequest{
+		KraPIN:    "P051234567A",
+		TCCNumber: "TCC123456",
+	})
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) {
 		t.Fatalf("expected APIError, got %v", err)

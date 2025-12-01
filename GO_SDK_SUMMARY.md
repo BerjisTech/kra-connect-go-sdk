@@ -94,7 +94,7 @@ All errors implement proper error unwrapping for Go 1.13+ error handling.
 - Context support for all methods
 - API methods:
   - `VerifyPIN()` - Single PIN verification
-  - `VerifyTCC()` - Single TCC verification
+  - `VerifyTCC()` - Single TCC verification (requires `TCCVerificationRequest`)
   - `ValidateEslip()` - E-slip validation
   - `FileNILReturn()` - NIL return filing
   - `GetTaxpayerDetails()` - Taxpayer information retrieval

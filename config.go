@@ -7,9 +7,12 @@ import (
 // Config holds the configuration for the KRA Connect client
 type Config struct {
 	// API configuration
-	APIKey  string
-	BaseURL string
-	Timeout time.Duration
+	APIKey       string
+	ClientID     string
+	ClientSecret string
+	BaseURL      string
+	TokenURL     string
+	Timeout      time.Duration
 
 	// Retry configuration
 	MaxRetries   int
@@ -40,8 +43,9 @@ type Option func(*Config) error
 // DefaultConfig returns a Config with sensible defaults
 func DefaultConfig() *Config {
 	return &Config{
-		BaseURL: "https://api.kra.go.ke/gavaconnect/v1",
-		Timeout: 30 * time.Second,
+		BaseURL:  "https://sbx.kra.go.ke",
+		TokenURL: "https://sbx.kra.go.ke/v1/token/generate?grant_type=client_credentials",
+		Timeout:  30 * time.Second,
 
 		MaxRetries:   3,
 		InitialDelay: 1 * time.Second,
@@ -78,6 +82,25 @@ func WithAPIKey(apiKey string) Option {
 			return err
 		}
 		c.APIKey = apiKey
+		c.ClientID = ""
+		c.ClientSecret = ""
+		return nil
+	}
+}
+
+// WithClientCredentials configures OAuth client-credentials authentication.
+//
+//	client, err := kra.NewClient(
+//	    kra.WithClientCredentials(os.Getenv("KRA_CLIENT_ID"), os.Getenv("KRA_CLIENT_SECRET")),
+//	)
+func WithClientCredentials(clientID, clientSecret string) Option {
+	return func(c *Config) error {
+		if clientID == "" || clientSecret == "" {
+			return NewValidationError("client_credentials", "Client ID and Client Secret are required")
+		}
+		c.ClientID = clientID
+		c.ClientSecret = clientSecret
+		c.APIKey = ""
 		return nil
 	}
 }
@@ -98,6 +121,17 @@ func WithBaseURL(baseURL string) Option {
 			return NewValidationError("base_url", "Base URL cannot be empty")
 		}
 		c.BaseURL = baseURL
+		return nil
+	}
+}
+
+// WithTokenURL overrides the OAuth token endpoint
+func WithTokenURL(tokenURL string) Option {
+	return func(c *Config) error {
+		if tokenURL == "" {
+			return NewValidationError("token_url", "Token URL cannot be empty")
+		}
+		c.TokenURL = tokenURL
 		return nil
 	}
 }
@@ -327,12 +361,22 @@ func WithDebug(enabled bool) Option {
 
 // Validate validates the configuration
 func (c *Config) Validate() error {
-	if err := ValidateAPIKey(c.APIKey); err != nil {
-		return err
+	if c.APIKey == "" {
+		if c.ClientID == "" || c.ClientSecret == "" {
+			return NewValidationError("auth", "Provide either an API key or OAuth client credentials")
+		}
+	} else {
+		if err := ValidateAPIKey(c.APIKey); err != nil {
+			return err
+		}
 	}
 
 	if c.BaseURL == "" {
 		return NewValidationError("base_url", "Base URL is required")
+	}
+
+	if c.TokenURL == "" {
+		return NewValidationError("token_url", "Token URL is required")
 	}
 
 	if err := ValidateTimeout(c.Timeout); err != nil {
