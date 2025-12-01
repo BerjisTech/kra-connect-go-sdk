@@ -64,12 +64,12 @@ func main() {
 
 	// Example 2: Batch TCC Verification
 	fmt.Println("=== Batch TCC Verification ===")
-	tccs := []string{
-		"TCC123456",
-		"TCC123457",
-		"TCC123458",
-		"TCC123459",
-		"TCC123460",
+	tccs := []*kra.TCCVerificationRequest{
+		{KraPIN: "P051234567A", TCCNumber: "TCC123456"},
+		{KraPIN: "P051234567B", TCCNumber: "TCC123457"},
+		{KraPIN: "P051234567C", TCCNumber: "TCC123458"},
+		{KraPIN: "P051234567D", TCCNumber: "TCC123459"},
+		{KraPIN: "P051234567E", TCCNumber: "TCC123460"},
 	}
 
 	start = time.Now()

@@ -46,7 +46,10 @@ func main() {
 
 	// Example 2: Verify TCC
 	fmt.Println("=== TCC Verification ===")
-	tccResult, err := client.VerifyTCC(ctx, "TCC123456")
+	tccResult, err := client.VerifyTCC(ctx, &kra.TCCVerificationRequest{
+		KraPIN:    "P051234567A",
+		TCCNumber: "TCC123456",
+	})
 	if err != nil {
 		log.Printf("TCC verification failed: %v", err)
 	} else {
@@ -79,9 +82,10 @@ func main() {
 	// Example 4: File NIL Return
 	fmt.Println("=== NIL Return Filing ===")
 	nilResult, err := client.FileNILReturn(ctx, &kra.NILReturnRequest{
-		PINNumber:    "P051234567A",
-		ObligationID: "OBL123456",
-		Period:       "202401",
+		PINNumber:      "P051234567A",
+		ObligationCode: 1,
+		Month:          1,
+		Year:           2024,
 	})
 	if err != nil {
 		log.Printf("NIL return filing failed: %v", err)

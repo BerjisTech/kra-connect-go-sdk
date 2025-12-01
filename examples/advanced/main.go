@@ -178,7 +178,10 @@ func concurrentExample(apiKey string) {
 		wg.Add(1)
 		go func(t string) {
 			defer wg.Done()
-			result, err := client.VerifyTCC(ctx, t)
+			result, err := client.VerifyTCC(ctx, &kra.TCCVerificationRequest{
+				KraPIN:    "P051234567A",
+				TCCNumber: t,
+			})
 			if err != nil {
 				results <- fmt.Sprintf("TCC %s: ERROR - %v", t, err)
 				return
@@ -283,7 +286,10 @@ func customCacheTTLExample(apiKey string) {
 	}
 
 	// TCC verification will be cached for 2 hours
-	tccResult, err := client.VerifyTCC(ctx, "TCC123456")
+	tccResult, err := client.VerifyTCC(ctx, &kra.TCCVerificationRequest{
+		KraPIN:    "P051234567A",
+		TCCNumber: "TCC123456",
+	})
 	if err != nil {
 		log.Printf("Error: %v\n", err)
 	} else {

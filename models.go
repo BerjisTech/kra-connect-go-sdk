@@ -14,6 +14,8 @@ type PINVerificationResult struct {
 	RegistrationDate string                 `json:"registration_date,omitempty"`
 	AdditionalData   map[string]interface{} `json:"additional_data,omitempty"`
 	VerifiedAt       time.Time              `json:"verified_at"`
+	Metadata         ResponseMetadata       `json:"metadata"`
+	RawData          map[string]interface{} `json:"raw_data,omitempty"`
 }
 
 // IsActive returns true if the PIN is valid and active
@@ -33,17 +35,25 @@ func (r *PINVerificationResult) IsIndividual() bool {
 
 // TCCVerificationResult represents the result of a TCC verification request
 type TCCVerificationResult struct {
-	TCCNumber        string                 `json:"tcc_number"`
-	IsValid          bool                   `json:"is_valid"`
-	TaxpayerName     string                 `json:"taxpayer_name,omitempty"`
-	PINNumber        string                 `json:"pin_number,omitempty"`
-	IssueDate        string                 `json:"issue_date,omitempty"`
-	ExpiryDate       string                 `json:"expiry_date,omitempty"`
-	IsExpired        bool                   `json:"is_expired"`
-	Status           string                 `json:"status,omitempty"`
-	CertificateType  string                 `json:"certificate_type,omitempty"`
-	AdditionalData   map[string]interface{} `json:"additional_data,omitempty"`
-	VerifiedAt       time.Time              `json:"verified_at"`
+	TCCNumber       string                 `json:"tcc_number"`
+	IsValid         bool                   `json:"is_valid"`
+	TaxpayerName    string                 `json:"taxpayer_name,omitempty"`
+	PINNumber       string                 `json:"pin_number,omitempty"`
+	IssueDate       string                 `json:"issue_date,omitempty"`
+	ExpiryDate      string                 `json:"expiry_date,omitempty"`
+	IsExpired       bool                   `json:"is_expired"`
+	Status          string                 `json:"status,omitempty"`
+	CertificateType string                 `json:"certificate_type,omitempty"`
+	AdditionalData  map[string]interface{} `json:"additional_data,omitempty"`
+	VerifiedAt      time.Time              `json:"verified_at"`
+	Metadata        ResponseMetadata       `json:"metadata"`
+	RawData         map[string]interface{} `json:"raw_data,omitempty"`
+}
+
+// TCCVerificationRequest represents the payload required for TCC validation
+type TCCVerificationRequest struct {
+	KraPIN    string `json:"kra_pin"`
+	TCCNumber string `json:"tcc_number"`
 }
 
 // IsCurrentlyValid returns true if the TCC is valid and not expired
@@ -87,6 +97,8 @@ type EslipValidationResult struct {
 	Status           string                 `json:"status,omitempty"`
 	AdditionalData   map[string]interface{} `json:"additional_data,omitempty"`
 	ValidatedAt      time.Time              `json:"validated_at"`
+	Metadata         ResponseMetadata       `json:"metadata"`
+	RawData          map[string]interface{} `json:"raw_data,omitempty"`
 }
 
 // IsPaid returns true if the payment has been confirmed
@@ -106,9 +118,10 @@ func (r *EslipValidationResult) IsCancelled() bool {
 
 // NILReturnRequest represents a NIL return filing request
 type NILReturnRequest struct {
-	PINNumber    string `json:"pin_number"`
-	ObligationID string `json:"obligation_id"`
-	Period       string `json:"period"`
+	PINNumber      string `json:"pin_number"`
+	ObligationCode int    `json:"obligation_code"`
+	Month          int    `json:"month"`
+	Year           int    `json:"year"`
 }
 
 // NILReturnResult represents the result of a NIL return filing
@@ -124,6 +137,8 @@ type NILReturnResult struct {
 	Message               string                 `json:"message,omitempty"`
 	AdditionalData        map[string]interface{} `json:"additional_data,omitempty"`
 	FiledAt               time.Time              `json:"filed_at"`
+	Metadata              ResponseMetadata       `json:"metadata"`
+	RawData               map[string]interface{} `json:"raw_data,omitempty"`
 }
 
 // IsAccepted returns true if the filing was accepted
@@ -157,6 +172,8 @@ type TaxpayerDetails struct {
 	Obligations      []TaxObligation        `json:"obligations,omitempty"`
 	AdditionalData   map[string]interface{} `json:"additional_data,omitempty"`
 	RetrievedAt      time.Time              `json:"retrieved_at"`
+	Metadata         ResponseMetadata       `json:"metadata"`
+	RawData          map[string]interface{} `json:"raw_data,omitempty"`
 }
 
 // IsActive returns true if the taxpayer is active

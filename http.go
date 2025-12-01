@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,7 @@ type HTTPClient struct {
 	config       *Config
 	rateLimiter  *RateLimiter
 	cacheManager *CacheManager
+	auth         *authProvider
 }
 
 // NewHTTPClient creates a new HTTP client
@@ -29,6 +31,7 @@ func NewHTTPClient(config *Config, rateLimiter *RateLimiter, cacheManager *Cache
 		config:       config,
 		rateLimiter:  rateLimiter,
 		cacheManager: cacheManager,
+		auth:         newAuthProvider(config),
 	}
 }
 
@@ -40,23 +43,8 @@ type apiRequest struct {
 	Headers  map[string]string
 }
 
-// apiResponse represents the structure of KRA API responses
-type apiResponse struct {
-	Success bool                   `json:"success"`
-	Data    map[string]interface{} `json:"data,omitempty"`
-	Error   *apiErrorResponse      `json:"error,omitempty"`
-	Message string                 `json:"message,omitempty"`
-}
-
-// apiErrorResponse represents error details in API responses
-type apiErrorResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Details string `json:"details,omitempty"`
-}
-
 // Post sends a POST request to the API with retry logic
-func (h *HTTPClient) Post(ctx context.Context, endpoint string, body interface{}) (map[string]interface{}, error) {
+func (h *HTTPClient) Post(ctx context.Context, endpoint string, body interface{}) (*APIResponse, error) {
 	req := &apiRequest{
 		Method:   "POST",
 		Endpoint: endpoint,
@@ -67,7 +55,7 @@ func (h *HTTPClient) Post(ctx context.Context, endpoint string, body interface{}
 }
 
 // Get sends a GET request to the API with retry logic
-func (h *HTTPClient) Get(ctx context.Context, endpoint string) (map[string]interface{}, error) {
+func (h *HTTPClient) Get(ctx context.Context, endpoint string) (*APIResponse, error) {
 	req := &apiRequest{
 		Method:   "GET",
 		Endpoint: endpoint,
@@ -77,7 +65,7 @@ func (h *HTTPClient) Get(ctx context.Context, endpoint string) (map[string]inter
 }
 
 // executeWithRetry executes a request with exponential backoff retry logic
-func (h *HTTPClient) executeWithRetry(ctx context.Context, req *apiRequest) (map[string]interface{}, error) {
+func (h *HTTPClient) executeWithRetry(ctx context.Context, req *apiRequest) (*APIResponse, error) {
 	var lastErr error
 	delay := h.config.InitialDelay
 
@@ -150,9 +138,9 @@ func (h *HTTPClient) executeWithRetry(ctx context.Context, req *apiRequest) (map
 }
 
 // execute sends a single HTTP request
-func (h *HTTPClient) execute(ctx context.Context, apiReq *apiRequest, attemptNumber int) (map[string]interface{}, error) {
+func (h *HTTPClient) execute(ctx context.Context, apiReq *apiRequest, attemptNumber int) (*APIResponse, error) {
 	// Build full URL
-	url := h.config.BaseURL + apiReq.Endpoint
+	url := strings.TrimRight(h.config.BaseURL, "/") + apiReq.Endpoint
 
 	// Create request body
 	var bodyReader io.Reader
@@ -173,7 +161,11 @@ func (h *HTTPClient) execute(ctx context.Context, apiReq *apiRequest, attemptNum
 	// Set headers
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+h.config.APIKey)
+	token, err := h.auth.Token(ctx)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+token)
 	httpReq.Header.Set("User-Agent", "KRA-Connect-Go-SDK/0.1.1")
 
 	// Add custom headers
@@ -216,8 +208,8 @@ func (h *HTTPClient) execute(ctx context.Context, apiReq *apiRequest, attemptNum
 	}
 
 	// Parse response
-	var apiResp apiResponse
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(respBody, &raw); err != nil {
 		return nil, NewAPIError(
 			httpResp.StatusCode,
 			"Failed to parse API response",
@@ -226,36 +218,26 @@ func (h *HTTPClient) execute(ctx context.Context, apiReq *apiRequest, attemptNum
 		)
 	}
 
-	// Check API-level errors
-	if !apiResp.Success {
-		errorMsg := "API request failed"
-		if apiResp.Error != nil {
-			errorMsg = apiResp.Error.Message
-		} else if apiResp.Message != "" {
-			errorMsg = apiResp.Message
-		}
-
-		return nil, NewAPIError(
-			httpResp.StatusCode,
-			errorMsg,
-			apiReq.Endpoint,
-			string(respBody),
-		)
+	apiResponse, err := normalizeAPIResponse(raw, httpResp.StatusCode, apiReq.Endpoint, respBody)
+	if err != nil {
+		return nil, err
 	}
 
-	return apiResp.Data, nil
+	return apiResponse, nil
 }
 
 // handleErrorResponse handles HTTP error responses
 func (h *HTTPClient) handleErrorResponse(statusCode int, body []byte, endpoint string) error {
 	bodyStr := string(body)
 
-	// Try to parse error response
-	var apiResp apiResponse
-	if err := json.Unmarshal(body, &apiResp); err == nil && apiResp.Error != nil {
-		bodyStr = apiResp.Error.Message
-		if apiResp.Error.Details != "" {
-			bodyStr += ": " + apiResp.Error.Details
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err == nil {
+		meta := ResponseMetadata{
+			ErrorCode:    firstString(raw, "ErrorCode", "errorCode", "code"),
+			ErrorMessage: firstString(raw, "ErrorMessage", "errorMessage", "message"),
+		}
+		if meta.ErrorMessage != "" {
+			bodyStr = meta.ErrorMessage
 		}
 	}
 

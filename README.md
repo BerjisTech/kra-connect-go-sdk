@@ -95,7 +95,10 @@ fmt.Printf("Status: %s\n", result.Status)
 ### TCC Verification
 
 ```go
-result, err := client.VerifyTCC(ctx, "TCC123456")
+result, err := client.VerifyTCC(ctx, &kra.TCCVerificationRequest{
+    KraPIN:    "P051234567A",
+    TCCNumber: "TCC123456",
+})
 if err != nil {
     log.Fatal(err)
 }
@@ -124,9 +127,10 @@ if result.IsPaid() {
 
 ```go
 result, err := client.FileNILReturn(ctx, &kra.NILReturnRequest{
-    PINNumber:    "P051234567A",
-    ObligationID: "OBL123456",
-    Period:       "202401",
+    PINNumber:      "P051234567A",
+    ObligationCode: 1,
+    Month:          1,
+    Year:           2024,
 })
 if err != nil {
     log.Fatal(err)
@@ -218,12 +222,12 @@ type Client struct {
 func NewClient(opts ...Option) (*Client, error)
 func (c *Client) Close() error
 func (c *Client) VerifyPIN(ctx context.Context, pin string) (*PINVerificationResult, error)
-func (c *Client) VerifyTCC(ctx context.Context, tcc string) (*TCCVerificationResult, error)
+func (c *Client) VerifyTCC(ctx context.Context, req *TCCVerificationRequest) (*TCCVerificationResult, error)
 func (c *Client) ValidateEslip(ctx context.Context, eslip string) (*EslipValidationResult, error)
 func (c *Client) FileNILReturn(ctx context.Context, req *NILReturnRequest) (*NILReturnResult, error)
 func (c *Client) GetTaxpayerDetails(ctx context.Context, pin string) (*TaxpayerDetails, error)
 func (c *Client) VerifyPINsBatch(ctx context.Context, pins []string) ([]*PINVerificationResult, error)
-func (c *Client) VerifyTCCsBatch(ctx context.Context, tccs []string) ([]*TCCVerificationResult, error)
+func (c *Client) VerifyTCCsBatch(ctx context.Context, requests []*TCCVerificationRequest) ([]*TCCVerificationResult, error)
 ```
 
 ### Configuration Options
@@ -231,12 +235,14 @@ func (c *Client) VerifyTCCsBatch(ctx context.Context, tccs []string) ([]*TCCVeri
 ```go
 func WithAPIKey(key string) Option
 func WithBaseURL(url string) Option
+func WithTokenURL(url string) Option
 func WithTimeout(timeout time.Duration) Option
 func WithRetry(maxRetries int, initialDelay, maxDelay time.Duration) Option
 func WithCache(enabled bool, ttl time.Duration) Option
 func WithRateLimit(maxRequests int, window time.Duration) Option
 func WithDebug(debug bool) Option
 func WithHTTPClient(client *http.Client) Option
+func WithClientCredentials(clientID, clientSecret string) Option
 ```
 
 ## Testing

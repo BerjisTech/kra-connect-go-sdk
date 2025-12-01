@@ -44,12 +44,12 @@ func TestHTTPClientRetriesOnServerError(t *testing.T) {
 	client.client = server.Client()
 
 	ctx := context.Background()
-	data, err := client.Post(ctx, "/verify-pin", map[string]string{"pin": "P051234567A"})
+	resp, err := client.Post(ctx, "/checker/v1/pinbypin", map[string]string{"KRAPIN": "P051234567A"})
 	if err != nil {
 		t.Fatalf("Post() error = %v", err)
 	}
-	if val, ok := data["is_valid"].(bool); !ok || !val {
-		t.Fatalf("expected valid pin, got %v", data)
+	if val, ok := resp.Data["is_valid"].(bool); !ok || !val {
+		t.Fatalf("expected valid pin, got %v", resp.Data)
 	}
 	if attempts != 2 {
 		t.Fatalf("expected 2 attempts, got %d", attempts)
@@ -63,17 +63,17 @@ func TestHTTPClientHandleErrorResponse(t *testing.T) {
 	cacheManager := NewCacheManager(false, cfg.DebugMode, cfg.CacheMaxEntries)
 	client := NewHTTPClient(cfg, rateLimiter, cacheManager)
 
-	err := client.handleErrorResponse(http.StatusUnauthorized, []byte(`{"error":{"message":"bad"}}`), "/verify-pin")
+	err := client.handleErrorResponse(http.StatusUnauthorized, []byte(`{"error":{"message":"bad"}}`), "/checker/v1/pinbypin")
 	if _, ok := err.(*AuthenticationError); !ok {
 		t.Fatalf("expected AuthenticationError, got %v", err)
 	}
 
-	err = client.handleErrorResponse(http.StatusTooManyRequests, []byte(`{"error":{"message":"limit"}}`), "/verify-pin")
+	err = client.handleErrorResponse(http.StatusTooManyRequests, []byte(`{"error":{"message":"limit"}}`), "/checker/v1/pinbypin")
 	if _, ok := err.(*RateLimitError); !ok {
 		t.Fatalf("expected RateLimitError, got %v", err)
 	}
 
-	err = client.handleErrorResponse(http.StatusBadRequest, []byte(`{"error":{"message":"bad","details":"oops"}}`), "/verify-pin")
+	err = client.handleErrorResponse(http.StatusBadRequest, []byte(`{"error":{"message":"bad","details":"oops"}}`), "/checker/v1/pinbypin")
 	if _, ok := err.(*APIError); !ok {
 		t.Fatalf("expected APIError for bad request, got %v", err)
 	}
@@ -187,7 +187,7 @@ func TestHTTPClientClientErrorNoRetry(t *testing.T) {
 	client, server := newClientWithServer(t, handler, WithoutCache())
 	defer server.Close()
 
-	if _, err := client.httpClient.Post(context.Background(), "/bad", map[string]string{"pin": "bad"}); err == nil {
+	if _, err := client.httpClient.Post(context.Background(), "/bad", map[string]string{"KRAPIN": "bad"}); err == nil {
 		t.Fatal("expected API error for bad request")
 	}
 	if attempts != 1 {
