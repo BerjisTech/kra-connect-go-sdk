@@ -166,6 +166,7 @@ func (h *HTTPClient) execute(ctx context.Context, apiReq *apiRequest, attemptNum
 		return nil, err
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+token)
+
 	httpReq.Header.Set("User-Agent", fmt.Sprintf("KRA-Connect-Go-SDK/%s", Version))
 
 	// Add custom headers
