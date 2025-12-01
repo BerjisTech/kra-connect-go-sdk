@@ -22,12 +22,13 @@ type Config struct {
 	RateLimitWindow  time.Duration
 
 	// Cache configuration
-	CacheEnabled         bool
-	PINVerificationTTL   time.Duration
-	TCCVerificationTTL   time.Duration
-	EslipValidationTTL   time.Duration
-	TaxpayerDetailsTTL   time.Duration
-	NILReturnTTL         time.Duration
+	CacheEnabled       bool
+	PINVerificationTTL time.Duration
+	TCCVerificationTTL time.Duration
+	EslipValidationTTL time.Duration
+	TaxpayerDetailsTTL time.Duration
+	NILReturnTTL       time.Duration
+	CacheMaxEntries    int
 
 	// Debug configuration
 	DebugMode bool
@@ -50,12 +51,13 @@ func DefaultConfig() *Config {
 		MaxRequests:      100,
 		RateLimitWindow:  1 * time.Minute,
 
-		CacheEnabled:         true,
-		PINVerificationTTL:   1 * time.Hour,
-		TCCVerificationTTL:   30 * time.Minute,
-		EslipValidationTTL:   15 * time.Minute,
-		TaxpayerDetailsTTL:   2 * time.Hour,
-		NILReturnTTL:         24 * time.Hour,
+		CacheEnabled:       true,
+		PINVerificationTTL: 1 * time.Hour,
+		TCCVerificationTTL: 30 * time.Minute,
+		EslipValidationTTL: 15 * time.Minute,
+		TaxpayerDetailsTTL: 2 * time.Hour,
+		NILReturnTTL:       24 * time.Hour,
+		CacheMaxEntries:    1024,
 
 		DebugMode: false,
 	}
@@ -221,6 +223,26 @@ func WithCache(enabled bool, defaultTTL time.Duration) Option {
 	}
 }
 
+// WithCacheCapacity sets the maximum number of entries the cache can hold before evicting
+//
+// Default: 1024 entries
+//
+// Example:
+//
+//	client, err := kra.NewClient(
+//	    kra.WithAPIKey("your-api-key"),
+//	    kra.WithCacheCapacity(2048),
+//	)
+func WithCacheCapacity(entries int) Option {
+	return func(c *Config) error {
+		if entries <= 0 {
+			return NewValidationError("cache_max_entries", "Cache max entries must be positive")
+		}
+		c.CacheMaxEntries = entries
+		return nil
+	}
+}
+
 // WithCustomCacheTTLs sets custom TTL values for each operation type
 //
 // This allows fine-grained control over cache duration for different operations.
@@ -328,6 +350,9 @@ func (c *Config) Validate() error {
 	}
 
 	if c.CacheEnabled {
+		if c.CacheMaxEntries <= 0 {
+			return NewValidationError("cache_max_entries", "Cache max entries must be positive")
+		}
 		if err := ValidateCacheTTL(c.PINVerificationTTL); err != nil {
 			return err
 		}

@@ -162,6 +162,37 @@ func TestTCCVerificationResult_IsExpiringSoon(t *testing.T) {
 	}
 }
 
+func TestTaxpayerDetailsHelpers(t *testing.T) {
+	details := &TaxpayerDetails{
+		TaxpayerType: "company",
+		BusinessName: "BizCo",
+		TradingName:  "TradeCo",
+		TaxpayerName: "Fallback",
+		Status:       "active",
+		Obligations: []TaxObligation{
+			{ObligationType: "VAT"},
+		},
+	}
+
+	if !details.IsCompany() {
+		t.Fatal("expected IsCompany to return true")
+	}
+	if details.IsIndividual() {
+		t.Fatal("expected IsIndividual to return false")
+	}
+	if details.GetDisplayName() != "BizCo" {
+		t.Fatalf("unexpected display name: %s", details.GetDisplayName())
+	}
+	if !details.HasObligation("VAT") {
+		t.Fatal("expected HasObligation to find VAT")
+	}
+
+	details.TaxpayerType = "individual"
+	if !details.IsIndividual() {
+		t.Fatal("expected IsIndividual after type change")
+	}
+}
+
 func TestEslipValidationResult_IsPaid(t *testing.T) {
 	result := &EslipValidationResult{IsValid: true, Status: "paid"}
 	if !result.IsPaid() {

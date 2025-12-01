@@ -1,12 +1,17 @@
 package kra
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
 
+func newTestCacheManager(enabled bool) *CacheManager {
+	return NewCacheManager(enabled, false, 32)
+}
+
 func TestCacheManager_SetAndGet(t *testing.T) {
-	cm := NewCacheManager(true, false)
+	cm := newTestCacheManager(true)
 
 	// Set a value
 	cm.Set("test-key", "test-value", 1*time.Hour)
@@ -23,7 +28,7 @@ func TestCacheManager_SetAndGet(t *testing.T) {
 }
 
 func TestCacheManager_GetNonExistent(t *testing.T) {
-	cm := NewCacheManager(true, false)
+	cm := newTestCacheManager(true)
 
 	// Try to get non-existent key
 	_, found := cm.Get("non-existent")
@@ -33,7 +38,7 @@ func TestCacheManager_GetNonExistent(t *testing.T) {
 }
 
 func TestCacheManager_Expiration(t *testing.T) {
-	cm := NewCacheManager(true, false)
+	cm := newTestCacheManager(true)
 
 	// Set a value with very short TTL
 	cm.Set("test-key", "test-value", 100*time.Millisecond)
@@ -55,7 +60,7 @@ func TestCacheManager_Expiration(t *testing.T) {
 }
 
 func TestCacheManager_Delete(t *testing.T) {
-	cm := NewCacheManager(true, false)
+	cm := newTestCacheManager(true)
 
 	// Set a value
 	cm.Set("test-key", "test-value", 1*time.Hour)
@@ -77,7 +82,7 @@ func TestCacheManager_Delete(t *testing.T) {
 }
 
 func TestCacheManager_Clear(t *testing.T) {
-	cm := NewCacheManager(true, false)
+	cm := newTestCacheManager(true)
 
 	// Set multiple values
 	cm.Set("key1", "value1", 1*time.Hour)
@@ -104,7 +109,7 @@ func TestCacheManager_Clear(t *testing.T) {
 }
 
 func TestCacheManager_GetOrSet(t *testing.T) {
-	cm := NewCacheManager(true, false)
+	cm := newTestCacheManager(true)
 
 	callCount := 0
 	compute := func() (interface{}, error) {
@@ -138,7 +143,7 @@ func TestCacheManager_GetOrSet(t *testing.T) {
 }
 
 func TestCacheManager_Disabled(t *testing.T) {
-	cm := NewCacheManager(false, false)
+	cm := newTestCacheManager(false)
 
 	// Set a value
 	cm.Set("test-key", "test-value", 1*time.Hour)
@@ -193,13 +198,13 @@ func TestGenerateCacheKey(t *testing.T) {
 }
 
 func TestCacheManager_Concurrent(t *testing.T) {
-	cm := NewCacheManager(true, false)
+	cm := newTestCacheManager(true)
 
 	// Test concurrent access
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func(id int) {
-			key := GenerateCacheKey("test", string(rune(id)))
+			key := GenerateCacheKey("test", fmt.Sprintf("%d", id))
 			cm.Set(key, id, 1*time.Hour)
 			if value, found := cm.Get(key); found {
 				if value.(int) != id {
@@ -214,4 +219,39 @@ func TestCacheManager_Concurrent(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		<-done
 	}
+}
+
+func TestCacheManager_EvictsLeastRecentlyUsed(t *testing.T) {
+	cm := NewCacheManager(true, false, 2)
+
+	cm.Set("a", "A", time.Hour)
+	cm.Set("b", "B", time.Hour)
+
+	if cm.Size() != 2 {
+		t.Fatalf("expected size 2, got %d", cm.Size())
+	}
+
+	// Access "a" so that "b" becomes LRU
+	if _, ok := cm.Get("a"); !ok {
+		t.Fatalf("expected to get key a")
+	}
+
+	// Insert "c" to trigger eviction
+	cm.Set("c", "C", time.Hour)
+
+	if _, ok := cm.Get("b"); ok {
+		t.Fatalf("expected key b to be evicted")
+	}
+
+	if _, ok := cm.Get("a"); !ok {
+		t.Fatalf("expected key a to remain")
+	}
+}
+
+func TestCacheManager_DebugLogging(t *testing.T) {
+	cm := NewCacheManager(true, true, 4)
+	cm.Set("key", "value", time.Millisecond)
+	cm.Get("key")
+	cm.Delete("key")
+	cm.Clear()
 }

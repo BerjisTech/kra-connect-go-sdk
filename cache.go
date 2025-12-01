@@ -4,47 +4,47 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/golang/groupcache/lru"
 )
 
-// cacheEntry represents a cached item with expiration
+// cacheEntry represents a cached item with expiration metadata
 type cacheEntry struct {
 	value      interface{}
 	expiration time.Time
 }
 
-// isExpired checks if the cache entry has expired
+// isExpired reports whether the entry has passed its TTL
 func (e *cacheEntry) isExpired() bool {
 	return time.Now().After(e.expiration)
 }
 
-// CacheManager manages in-memory caching with TTL support
-//
-// The cache is goroutine-safe and automatically cleans up expired entries.
+// CacheManager provides a groupcache-backed LRU cache with TTL semantics
 type CacheManager struct {
-	cache   map[string]*cacheEntry
-	mu      sync.RWMutex
-	enabled bool
-	debug   bool
+	cache      *lru.Cache
+	mu         sync.RWMutex
+	enabled    bool
+	debug      bool
+	maxEntries int
 }
 
-// NewCacheManager creates a new cache manager
-//
-// If enabled is false, the cache will be a no-op (all operations will return cache misses).
-//
-// The cleanup goroutine runs every minute to remove expired entries.
-func NewCacheManager(enabled bool, debug bool) *CacheManager {
-	cm := &CacheManager{
-		cache:   make(map[string]*cacheEntry),
-		enabled: enabled,
-		debug:   debug,
+// NewCacheManager creates a new cache manager backed by groupcache's LRU implementation
+func NewCacheManager(enabled bool, debug bool, maxEntries int) *CacheManager {
+	if maxEntries <= 0 {
+		maxEntries = 1024
 	}
 
+	var lruCache *lru.Cache
 	if enabled {
-		// Start background cleanup goroutine
-		go cm.cleanupLoop()
+		lruCache = lru.New(maxEntries)
 	}
 
-	return cm
+	return &CacheManager{
+		cache:      lruCache,
+		enabled:    enabled,
+		debug:      debug,
+		maxEntries: maxEntries,
+	}
 }
 
 // Get retrieves a value from the cache
@@ -56,18 +56,20 @@ func (cm *CacheManager) Get(key string) (interface{}, bool) {
 		return nil, false
 	}
 
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
-	entry, exists := cm.cache[key]
-	if !exists {
+	value, ok := cm.cache.Get(key)
+	if !ok {
 		if cm.debug {
 			fmt.Printf("[Cache] MISS: %s\n", key)
 		}
 		return nil, false
 	}
 
-	if entry.isExpired() {
+	entry, _ := value.(*cacheEntry)
+	if entry == nil || entry.isExpired() {
+		cm.cache.Remove(key)
 		if cm.debug {
 			fmt.Printf("[Cache] EXPIRED: %s\n", key)
 		}
@@ -91,11 +93,12 @@ func (cm *CacheManager) Set(key string, value interface{}, ttl time.Duration) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	expiration := time.Now().Add(ttl)
-	cm.cache[key] = &cacheEntry{
+	entry := &cacheEntry{
 		value:      value,
-		expiration: expiration,
+		expiration: time.Now().Add(ttl),
 	}
+
+	cm.cache.Add(key, entry)
 
 	if cm.debug {
 		fmt.Printf("[Cache] SET: %s (TTL: %v)\n", key, ttl)
@@ -111,7 +114,7 @@ func (cm *CacheManager) Delete(key string) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	delete(cm.cache, key)
+	cm.cache.Remove(key)
 
 	if cm.debug {
 		fmt.Printf("[Cache] DELETE: %s\n", key)
@@ -127,7 +130,7 @@ func (cm *CacheManager) Clear() {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	cm.cache = make(map[string]*cacheEntry)
+	cm.cache = lru.New(cm.maxEntries)
 
 	if cm.debug {
 		fmt.Println("[Cache] CLEAR: All entries removed")
@@ -172,37 +175,7 @@ func (cm *CacheManager) Size() int {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 
-	return len(cm.cache)
-}
-
-// cleanupLoop runs periodically to remove expired entries
-func (cm *CacheManager) cleanupLoop() {
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		cm.cleanup()
-	}
-}
-
-// cleanup removes all expired entries from the cache
-func (cm *CacheManager) cleanup() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
-	now := time.Now()
-	expiredCount := 0
-
-	for key, entry := range cm.cache {
-		if now.After(entry.expiration) {
-			delete(cm.cache, key)
-			expiredCount++
-		}
-	}
-
-	if cm.debug && expiredCount > 0 {
-		fmt.Printf("[Cache] CLEANUP: Removed %d expired entries\n", expiredCount)
-	}
+	return cm.cache.Len()
 }
 
 // GenerateCacheKey creates a cache key from operation name and parameters

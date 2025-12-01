@@ -382,3 +382,47 @@ func TestValidateRetryConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRateLimitConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		maxRequests int
+		window      time.Duration
+		wantErr     bool
+	}{
+		{"valid", 10, time.Second, false},
+		{"zero requests", 0, time.Second, true},
+		{"negative requests", -5, time.Second, true},
+		{"zero window", 10, 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateRateLimitConfig(tt.maxRequests, tt.window)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateRateLimitConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateObligationID(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{"valid", "OBL123456", false},
+		{"empty", "", true},
+		{"invalid characters", "OBL 123", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateObligationID(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateObligationID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

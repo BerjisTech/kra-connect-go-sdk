@@ -72,7 +72,7 @@ func NewClient(opts ...Option) (*Client, error) {
 		config.DebugMode,
 	)
 
-	cacheManager := NewCacheManager(config.CacheEnabled, config.DebugMode)
+	cacheManager := NewCacheManager(config.CacheEnabled, config.DebugMode, config.CacheMaxEntries)
 
 	httpClient := NewHTTPClient(config, rateLimiter, cacheManager)
 
