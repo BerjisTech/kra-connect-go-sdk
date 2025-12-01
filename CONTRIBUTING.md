@@ -315,7 +315,7 @@ What you expected to happen
 
 **Environment**
 - Go version: [e.g., 1.21.0]
-- SDK version: [e.g., 0.1.0]
+- SDK version: [e.g., 0.1.1]
 - OS: [e.g., Ubuntu 22.04]
 
 **Additional context**

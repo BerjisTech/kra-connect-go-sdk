@@ -164,7 +164,7 @@ package kra
 
 const (
 	// Version is the current version of the SDK
-	Version = "0.1.0"
+	Version = "0.1.1"
 
 	// DefaultBaseURL is the default KRA API base URL
 	DefaultBaseURL = "https://api.kra.go.ke/gavaconnect/v1"
