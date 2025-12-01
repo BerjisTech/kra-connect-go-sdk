@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -23,7 +25,7 @@ func main() {
 	fmt.Println("=== Example 2: Invalid Configuration ===")
 	_, err = kra.NewClient(
 		kra.WithAPIKey("valid-api-key-here"),
-		kra.WithTimeout(-5 * time.Second), // Invalid timeout
+		kra.WithTimeout(-5*time.Second), // Invalid timeout
 	)
 	if err != nil {
 		fmt.Printf("Configuration error: %v\n\n", err)
@@ -159,7 +161,7 @@ func handleTimeoutErrors(apiKey string) {
 	// Create client with very short timeout
 	client, err := kra.NewClient(
 		kra.WithAPIKey(apiKey),
-		kra.WithTimeout(1 * time.Millisecond), // Unrealistically short
+		kra.WithTimeout(1*time.Millisecond), // Unrealistically short
 	)
 	if err != nil {
 		fmt.Printf("Client creation error: %v\n\n", err)
