@@ -10,7 +10,7 @@ The KRA-Connect Go SDK has been successfully implemented with full feature parit
 
 #### 1. **Package Structure** (`kra.go`)
 - Main package documentation with comprehensive examples
-- Version constant (0.1.0)
+- Version constant (0.1.1)
 - Default configuration constants
 
 #### 2. **Data Models** ([models.go](models.go:1))
@@ -378,7 +378,7 @@ The Go SDK is complete and ready for:
 1. ✅ Production use
 2. ✅ Publishing to pkg.go.dev
 3. ✅ Integration with CI/CD pipeline
-4. ✅ Version tagging (v0.1.0)
+4. ✅ Version tagging (v0.1.1)
 
 ## Comparison with Other SDKs
 

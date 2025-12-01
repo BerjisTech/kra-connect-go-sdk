@@ -174,7 +174,7 @@ func (h *HTTPClient) execute(ctx context.Context, apiReq *apiRequest, attemptNum
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+h.config.APIKey)
-	httpReq.Header.Set("User-Agent", "KRA-Connect-Go-SDK/0.1.0")
+	httpReq.Header.Set("User-Agent", "KRA-Connect-Go-SDK/0.1.1")
 
 	// Add custom headers
 	for key, value := range apiReq.Headers {
