@@ -29,7 +29,7 @@
 //	    "log"
 //	    "os"
 //
-//	    kra "github.com/kra-connect/go-sdk"
+//	    kra "github.com/BerjisTech/kra-connect-go-sdk"
 //	)
 //
 //	func main() {
@@ -159,7 +159,7 @@
 //	}
 //	wg.Wait()
 //
-// For more information and examples, see https://github.com/kra-connect/go-sdk
+// For more information and examples, see https://github.com/BerjisTech/kra-connect-go-sdk
 package kra
 
 const (

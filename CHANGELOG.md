@@ -67,5 +67,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `github.com/stretchr/testify` v1.8.4 (dev)
 - `golang.org/x/time` v0.5.0 (for rate limiting)
 
-[Unreleased]: https://github.com/kra-connect/go-sdk/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/kra-connect/go-sdk/releases/tag/v0.1.0
+[Unreleased]: https://github.com/BerjisTech/kra-connect-go-sdk/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/BerjisTech/kra-connect-go-sdk/releases/tag/v0.1.0

@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	kra "github.com/kra-connect/go-sdk"
+	kra "github.com/BerjisTech/kra-connect-go-sdk"
 )
 
 func main() {

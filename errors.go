@@ -7,34 +7,35 @@ import (
 
 // Error types for the KRA Connect SDK
 
-// KRAError is the base error type for all SDK errors
-type KRAError struct {
+// SDKError is the base error type for all SDK errors.
+type SDKError struct {
 	Message    string
 	Details    map[string]interface{}
 	StatusCode int
 	Err        error
 }
 
-func (e *KRAError) Error() string {
+func (e *SDKError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.Err)
 	}
 	return e.Message
 }
 
-func (e *KRAError) Unwrap() error {
+func (e *SDKError) Unwrap() error {
 	return e.Err
 }
 
 // ValidationError represents input validation errors
 type ValidationError struct {
-	KRAError
+	SDKError
 	Field string
 }
 
+// NewValidationError constructs a validation error for a given field.
 func NewValidationError(field, message string) *ValidationError {
 	return &ValidationError{
-		KRAError: KRAError{
+		SDKError: SDKError{
 			Message: message,
 			Details: map[string]interface{}{
 				"field": field,
@@ -44,56 +45,53 @@ func NewValidationError(field, message string) *ValidationError {
 	}
 }
 
-// InvalidPINFormatError represents an invalid PIN format error
+// InvalidPINFormatError represents an invalid PIN format error.
 type InvalidPINFormatError struct {
 	ValidationError
 	PIN string
 }
 
+// NewInvalidPINFormatError constructs an error for invalid PIN formats.
 func NewInvalidPINFormatError(pin string) *InvalidPINFormatError {
+	base := NewValidationError(
+		"pin",
+		fmt.Sprintf("Invalid PIN format: '%s'. Expected format: P followed by 9 digits and a letter (e.g., P051234567A)", pin),
+	)
+
 	return &InvalidPINFormatError{
-		ValidationError: ValidationError{
-			KRAError: KRAError{
-				Message: fmt.Sprintf("Invalid PIN format: '%s'. Expected format: P followed by 9 digits and a letter (e.g., P051234567A)", pin),
-				Details: map[string]interface{}{
-					"pin": pin,
-				},
-			},
-			Field: "pin",
-		},
-		PIN: pin,
+		ValidationError: *base,
+		PIN:             pin,
 	}
 }
 
-// InvalidTCCFormatError represents an invalid TCC format error
+// InvalidTCCFormatError represents an invalid TCC format error.
 type InvalidTCCFormatError struct {
 	ValidationError
 	TCC string
 }
 
+// NewInvalidTCCFormatError constructs an error for invalid TCC formats.
 func NewInvalidTCCFormatError(tcc string) *InvalidTCCFormatError {
+	base := NewValidationError(
+		"tcc",
+		fmt.Sprintf("Invalid TCC format: '%s'. Expected format: TCC followed by digits (e.g., TCC123456)", tcc),
+	)
+
 	return &InvalidTCCFormatError{
-		ValidationError: ValidationError{
-			KRAError: KRAError{
-				Message: fmt.Sprintf("Invalid TCC format: '%s'. Expected format: TCC followed by digits (e.g., TCC123456)", tcc),
-				Details: map[string]interface{}{
-					"tcc": tcc,
-				},
-			},
-			Field: "tcc",
-		},
-		TCC: tcc,
+		ValidationError: *base,
+		TCC:             tcc,
 	}
 }
 
 // AuthenticationError represents API authentication failures
 type AuthenticationError struct {
-	KRAError
+	SDKError
 }
 
+// NewAuthenticationError constructs an authentication error.
 func NewAuthenticationError(message string) *AuthenticationError {
 	return &AuthenticationError{
-		KRAError: KRAError{
+		SDKError: SDKError{
 			Message:    message,
 			StatusCode: 401,
 		},
@@ -102,12 +100,13 @@ func NewAuthenticationError(message string) *AuthenticationError {
 
 // RateLimitError represents rate limit exceeded errors
 type RateLimitError struct {
-	KRAError
+	SDKError
 	RetryAfter time.Duration
 	Limit      int
 	Window     time.Duration
 }
 
+// NewRateLimitError constructs a rate limit error with retry hints.
 func NewRateLimitError(retryAfter time.Duration, limit int, window time.Duration) *RateLimitError {
 	message := fmt.Sprintf("Rate limit exceeded. Retry after %v", retryAfter)
 	if limit > 0 {
@@ -115,7 +114,7 @@ func NewRateLimitError(retryAfter time.Duration, limit int, window time.Duration
 	}
 
 	return &RateLimitError{
-		KRAError: KRAError{
+		SDKError: SDKError{
 			Message:    message,
 			StatusCode: 429,
 			Details: map[string]interface{}{
@@ -132,15 +131,16 @@ func NewRateLimitError(retryAfter time.Duration, limit int, window time.Duration
 
 // TimeoutError represents request timeout errors
 type TimeoutError struct {
-	KRAError
+	SDKError
 	Endpoint      string
 	Timeout       time.Duration
 	AttemptNumber int
 }
 
+// NewTimeoutError constructs a timeout error for a given endpoint.
 func NewTimeoutError(endpoint string, timeout time.Duration, attemptNumber int) *TimeoutError {
 	return &TimeoutError{
-		KRAError: KRAError{
+		SDKError: SDKError{
 			Message:    fmt.Sprintf("Request to '%s' timed out after %v (attempt %d)", endpoint, timeout, attemptNumber),
 			StatusCode: 408,
 			Details: map[string]interface{}{
@@ -157,14 +157,15 @@ func NewTimeoutError(endpoint string, timeout time.Duration, attemptNumber int) 
 
 // APIError represents general API errors
 type APIError struct {
-	KRAError
+	SDKError
 	Endpoint     string
 	ResponseBody string
 }
 
+// NewAPIError constructs a generic API error for non-timeout failures.
 func NewAPIError(statusCode int, message, endpoint, responseBody string) *APIError {
 	return &APIError{
-		KRAError: KRAError{
+		SDKError: SDKError{
 			Message:    message,
 			StatusCode: statusCode,
 			Details: map[string]interface{}{
@@ -189,13 +190,14 @@ func (e *APIError) IsClientError() bool {
 
 // NetworkError represents network-related errors
 type NetworkError struct {
-	KRAError
+	SDKError
 	Endpoint string
 }
 
+// NewNetworkError constructs an error for network failures.
 func NewNetworkError(endpoint string, err error) *NetworkError {
 	return &NetworkError{
-		KRAError: KRAError{
+		SDKError: SDKError{
 			Message: fmt.Sprintf("Network error while calling '%s'", endpoint),
 			Err:     err,
 			Details: map[string]interface{}{
@@ -208,14 +210,15 @@ func NewNetworkError(endpoint string, err error) *NetworkError {
 
 // CacheError represents cache operation errors
 type CacheError struct {
-	KRAError
+	SDKError
 	Operation string
 	Key       string
 }
 
+// NewCacheError constructs an error for cache read/write failures.
 func NewCacheError(operation, key, reason string) *CacheError {
 	return &CacheError{
-		KRAError: KRAError{
+		SDKError: SDKError{
 			Message: fmt.Sprintf("Cache %s failed for key '%s': %s", operation, key, reason),
 			Details: map[string]interface{}{
 				"operation": operation,

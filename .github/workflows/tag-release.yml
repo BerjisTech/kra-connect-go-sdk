@@ -1,0 +1,47 @@
+name: Tag Release for Go Module
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  validate-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Build
+      run: go build ./...
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Notify about pkg.go.dev
+      run: |
+        echo "✅ Tag pushed. Module will be indexed by pkg.go.dev automatically."
+        echo "Visit: https://pkg.go.dev/github.com/BerjisTech/kra-connect-go-sdk@${{ github.ref_name }}"
+        echo ""
+        echo "To manually trigger indexing, visit:"
+        echo "https://pkg.go.dev/github.com/BerjisTech/kra-connect-go-sdk@${{ github.ref_name }}"
