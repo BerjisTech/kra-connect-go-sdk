@@ -28,7 +28,7 @@ This project adheres to a code of conduct that we expect all contributors to fol
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/kra-connect/go-sdk.git
+   git remote add upstream https://github.com/BerjisTech/kra-connect-go-sdk.git
    ```
 
 ## Development Setup
@@ -289,7 +289,7 @@ Describe the tests you ran and their results
 
 ### Before Submitting a Bug Report
 
-1. Check the [issue tracker](https://github.com/kra-connect/go-sdk/issues) for existing reports
+1. Check the [issue tracker](https://github.com/BerjisTech/kra-connect-go-sdk/issues) for existing reports
 2. Ensure you're using the latest version
 3. Verify the bug is reproducible
 
@@ -373,8 +373,8 @@ Any other relevant information
 
 If you have questions about contributing, please:
 
-1. Check the [documentation](https://pkg.go.dev/github.com/kra-connect/go-sdk)
-2. Search [existing issues](https://github.com/kra-connect/go-sdk/issues)
+1. Check the [documentation](https://pkg.go.dev/github.com/BerjisTech/kra-connect-go-sdk)
+2. Search [existing issues](https://github.com/BerjisTech/kra-connect-go-sdk/issues)
 3. Create a new issue with the `question` label
 
 Thank you for contributing to KRA-Connect Go SDK!

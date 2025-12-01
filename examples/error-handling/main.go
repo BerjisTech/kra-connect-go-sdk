@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	kra "github.com/kra-connect/go-sdk"
+	kra "github.com/BerjisTech/kra-connect-go-sdk"
 )
 
 func main() {
@@ -248,7 +248,7 @@ func demonstrateErrorInspection(ctx context.Context, client *kra.Client) {
 
 		// Method 3: Check error hierarchy
 		fmt.Println("Method 3: Error hierarchy")
-		var kraErr *kra.KRAError
+		var kraErr *kra.SDKError
 		if errors.As(err, &kraErr) {
 			fmt.Printf("  KRA Error: %s\n", kraErr.Message)
 			fmt.Printf("  Status Code: %d\n", kraErr.StatusCode)
