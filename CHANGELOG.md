@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-12-01
+
+### Added
+- OAuth client-credentials helpers via `WithClientCredentials` and `WithTokenURL` so CLIs can fetch sandbox tokens without manual environment tweaks.
+- TCC verification request payload (`TCCVerificationRequest`) to align with the latest CLI command inputs.
+- Documentation updates covering the new configuration knobs and request helpers.
+
+### Changed
+- `NILReturnRequest` now includes `ObligationCode`, `Month`, and `Year` fields to match the NIL filing workflow.
+- The SDK User-Agent string now stays in sync with the version constant to simplify release management.
+
 ## [0.1.1] - 2025-12-01
 
 ### Fixed
@@ -73,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `github.com/stretchr/testify` v1.8.4 (dev)
 - `golang.org/x/time` v0.5.0 (for rate limiting)
 
-[Unreleased]: https://github.com/BerjisTech/kra-connect-go-sdk/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/BerjisTech/kra-connect-go-sdk/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/BerjisTech/kra-connect-go-sdk/compare/v0.1.1...v0.1.3
 [0.1.1]: https://github.com/BerjisTech/kra-connect-go-sdk/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/BerjisTech/kra-connect-go-sdk/releases/tag/v0.1.0
